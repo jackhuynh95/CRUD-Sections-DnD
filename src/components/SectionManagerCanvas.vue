@@ -59,30 +59,26 @@ import { fabric } from 'fabric-pure-browser';
 import 'fabric-pure-browser';
 import { createDeleteControl } from '../utils/fabricControls';
 import { setupBoundaryConstraints } from '../utils/fabricBoundary';
+import { groupSectionsByRow  } from '../utils/fabric';
+import { sectionTypes as NEW_SECTIONS, COLUMN_WIDTH, ROW_HEIGHT, GRID_COLUMNS } from '../constants/sectionTypes';
 
 export default {
   data() {
     return {
-      newSections: [
-        { id: 0, type: "", name: "Select a Section" },
-        { id: 1, type: "text", name: "Text" },
-        { id: 2, type: "image", name: "Image" },
-        { id: 3, type: "button", name: "Button" },
-        { id: 4, type: "separator", name: "Separator" },
-        { id: 5, type: "gif", name: "Animated Gif" },
-        { id: 6, type: "group1", name: "Group 1 Column" },
-        { id: 7, type: "group2", name: "Group 2 Columns" },
-        { id: 8, type: "group3", name: "Group 3 Columns" },
-        { id: 9, type: "code", name: "Code" }
-      ],
+      newSections: NEW_SECTIONS,
       selectedNewSection: 0,
       sections: [],
       canvas: null,
-      gridColumns: 3,
-      columnWidth: 200,
-      rowHeight: 100,
+      gridColumns: GRID_COLUMNS,
+      columnWidth: COLUMN_WIDTH,
+      rowHeight: ROW_HEIGHT,
       hoveredSection: null,
     };
+  },
+  computed: {
+    groupedSections() {
+      return groupSectionsByRow(this.sections);
+    },
   },
   mounted() {
     this.$nextTick(() => {
