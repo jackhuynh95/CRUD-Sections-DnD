@@ -3,6 +3,7 @@
     <v-card-title>
       Section Manager
       <v-spacer></v-spacer>
+      <v-btn style="margin-right: 20px;" @click="visibleSelection = !visibleSelection">Show / Hide Sections</v-btn>
       <v-btn @click="exportJSON">Export Sections</v-btn>
     </v-card-title>
     <v-card-text>
@@ -24,10 +25,10 @@
       
       <v-row>
         <v-col cols="12" md="8">
-          <canvas ref="fabricCanvas" width="600" height="400"></canvas>
+          <canvas ref="fabricCanvas" :width="600" height="400"></canvas>
         </v-col>
-        <v-col cols="12" md="4">
-          <v-list dense>
+        <v-col cols="12" md="4" v-if="visibleSelection">
+          <v-list dense >
             <v-list-item
               v-for="(section, index) in sections"
               :key="section.id"
@@ -73,6 +74,7 @@ export default {
       columnWidth: COLUMN_WIDTH,
       rowHeight: ROW_HEIGHT,
       hoveredSection: null,
+      visibleSelection: true,
     };
   },
   computed: {
@@ -83,7 +85,8 @@ export default {
   mounted() {
     this.$nextTick(() => {
       this.initFabricCanvas();
-      createDeleteControl();
+      // Pass the handleDelete callback to createDeleteControl
+      createDeleteControl(this.handleDelete);
       setupBoundaryConstraints(
         this.canvas, 
         this.gridColumns, 
@@ -322,6 +325,13 @@ export default {
       // Add the object to canvas
       this.canvas.add(fabricObject);
       this.canvas.renderAll();
+    },
+    // Add new method to handle delete events
+    handleDelete(sectionId) {
+      const index = this.sections.findIndex(section => section.id === sectionId);
+      if (index !== -1) {
+        this.sections.splice(index, 1);
+      }
     },
     deleteSection(index) {
       const sectionId = this.sections[index].id;
