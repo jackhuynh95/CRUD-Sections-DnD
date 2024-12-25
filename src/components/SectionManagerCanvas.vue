@@ -34,7 +34,7 @@
               :class="{ 'highlighted': hoveredSection === section.id }"
               @mouseover="hoveredSection = section.id"
               @mouseleave="hoveredSection = null"
-              @focus="hoveredSection = section.id"
+              @focus="focusSection(section.id)"
               @blur="hoveredSection = null"
             >
               <v-list-item-content>
@@ -57,6 +57,8 @@
 <script>
 import { fabric } from 'fabric-pure-browser';
 import 'fabric-pure-browser';
+import { createDeleteControl } from '../utils/fabricControls';
+import { setupBoundaryConstraints } from '../utils/fabricBoundary';
 
 export default {
   data() {
@@ -85,6 +87,13 @@ export default {
   mounted() {
     this.$nextTick(() => {
       this.initFabricCanvas();
+      createDeleteControl();
+      setupBoundaryConstraints(
+        this.canvas, 
+        this.gridColumns, 
+        this.columnWidth, 
+        this.rowHeight
+      );
     });
   },
   methods: {
@@ -308,6 +317,13 @@ export default {
         sectionId: section.id,
       });
 
+      // Add delete control to the group
+      fabricObject.setControlsVisibility({
+        mtr: false, // hide rotation control
+        deleteControl: true // show delete control
+      });
+      
+      // Add the object to canvas
       this.canvas.add(fabricObject);
       this.canvas.renderAll();
     },
@@ -317,6 +333,10 @@ export default {
       const objectsToRemove = this.canvas.getObjects().filter(obj => obj.sectionId === sectionId);
       objectsToRemove.forEach(obj => this.canvas.remove(obj));
       this.canvas.renderAll();
+    },
+    focusSection(sectionId) {
+      this.hoveredSection = sectionId;
+      // You can add additional logic here to focus the section on the canvas if needed
     },
     snapToGrid(e) {
       const target = e.target;
@@ -364,7 +384,9 @@ export default {
       }
     },
     exportJSON() {
-      return JSON.stringify(this.sections);
+      const sections = JSON.stringify(this.sections);
+      console.log("🚀 ~ exportJSON ~ sections:", sections)
+      return sections;
     },
     checkOverlap(newSection) {
       return this.sections.some(existingSection => {
