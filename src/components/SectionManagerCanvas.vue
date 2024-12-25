@@ -98,9 +98,21 @@ export default {
 
       this.drawGrid();
 
-      this.canvas.on('object:moving', this.snapToGrid);
-      this.canvas.on('object:scaling', this.limitResize);
-      // this.canvas.on('object:rotating', this.limitRotate);
+      this.canvas.on('object:moving', (e) => {
+        this.snapToGrid(e);
+        if (this.checkOverlap(this.fabricObjectToSection(e.target))) {
+          e.target.set(e.transform.original);
+          this.canvas.renderAll();
+        }
+      });
+
+      this.canvas.on('object:scaling', (e) => {
+        this.limitResize(e);
+        if (this.checkOverlap(this.fabricObjectToSection(e.target))) {
+          e.target.set(e.transform.original);
+          this.canvas.renderAll();
+        }
+      });
     },
     drawGrid() {
       for (let i = 1; i < this.gridColumns; i++) {
@@ -310,10 +322,19 @@ export default {
       const target = e.target;
       const gridSizeX = this.columnWidth;
       const gridSizeY = this.rowHeight;
+      const newLeft = Math.round(target.left / gridSizeX) * gridSizeX;
+      const newTop = Math.round(target.top / gridSizeY) * gridSizeY;
+
       target.set({
-        left: Math.round(target.left / gridSizeX) * gridSizeX,
-        top: Math.round(target.top / gridSizeY) * gridSizeY,
+        left: newLeft,
+        top: newTop,
       });
+
+      const section = this.sections.find(s => s.id === target.sectionId);
+      if (section) {
+        section.left = newLeft;
+        section.top = newTop;
+      }
     },
     limitResize(e) {
       const target = e.target;
@@ -327,34 +348,44 @@ export default {
       if (columns < minColumns) columns = minColumns;
       if (columns > maxColumns) columns = maxColumns;
 
+      const newWidth = columns * gridSize;
+
       target.set({
-        scaleX: columns,
+        width: newWidth,
+        // scaleX: columns,
+        scaleX: 1,
         scaleY: 1,
       });
 
       const section = this.sections.find(s => s.id === target.sectionId);
       if (section) {
         section.columns = columns;
+        section.width = newWidth;
       }
     },
-    // limitRotate (e) {
-    //   const target = e.target;
-    //   target.set({
-    //     rotateX: 1,
-    //     rotateY: 1,
-    //     rotateZ: 1,
-    //   });
-    // },
     exportJSON() {
-      console.log(JSON.stringify(this.sections));
+      return JSON.stringify(this.sections);
     },
     checkOverlap(newSection) {
-      return this.sections.some(existingSection =>
-        newSection.left < existingSection.left + existingSection.columns * this.columnWidth &&
-        newSection.left + newSection.columns * this.columnWidth > existingSection.left &&
-        newSection.top < existingSection.top + this.rowHeight &&
-        newSection.top + this.rowHeight > existingSection.top
-      );
+      return this.sections.some(existingSection => {
+        if (existingSection.id === newSection.id) return false; // Don't check against itself
+        return (
+          newSection.left < existingSection.left + existingSection.columns * this.columnWidth &&
+          newSection.left + newSection.columns * this.columnWidth > existingSection.left &&
+          newSection.top < existingSection.top + this.rowHeight &&
+          newSection.top + this.rowHeight > existingSection.top
+        );
+      });
+    },
+    fabricObjectToSection(fabricObject) {
+      return {
+        id: fabricObject.sectionId,
+        left: fabricObject.left,
+        top: fabricObject.top,
+        columns: Math.round(fabricObject.width / this.columnWidth),
+        width: fabricObject.width,
+        height: fabricObject.height,
+      };
     },
   },
 };
