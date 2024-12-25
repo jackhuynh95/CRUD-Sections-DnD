@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@mdi/font": "^7.0.96",
+    "@types/fabric": "^5.3.9",
     "fabric": "^6.5.3",
     "fabric-pure-browser": "^5.1.0",
     "vue": "^2.7.14",
