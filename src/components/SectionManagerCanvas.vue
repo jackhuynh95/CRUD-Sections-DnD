@@ -7,9 +7,9 @@
       <v-btn @click="exportJSON">Export Sections</v-btn>
     </v-card-title>
     <v-card-text>
-      <!-- Increase/Decrease rows and columns -->
       <v-row>
-        <v-col cols="6">
+        <!-- Increase/Decrease rows and columns -->
+        <v-col cols="3">
           <v-btn-toggle mandatory>
             <v-btn @click="changeGridSize('column', -1)">
               <v-icon>mdi-minus</v-icon>
@@ -20,7 +20,7 @@
             </v-btn>
           </v-btn-toggle>
         </v-col>
-        <v-col cols="6">
+        <v-col cols="3">
           <v-btn-toggle mandatory>
             <v-btn @click="changeGridSize('row', -1)">
               <v-icon>mdi-minus</v-icon>
@@ -28,6 +28,19 @@
             <v-btn disabled>{{ gridRows }} Rows</v-btn>
             <v-btn @click="changeGridSize('row', 1)">
               <v-icon>mdi-plus</v-icon>
+            </v-btn>
+          </v-btn-toggle>
+        </v-col>
+
+        <!-- Increase/Decrease zoomLevels -->
+        <v-col cols="3">
+          <v-btn-toggle>
+            <v-btn @click="zoomOut" :disabled="zoomLevel === 0">
+              <v-icon>mdi-magnify-minus</v-icon>
+            </v-btn>
+            <v-btn disabled>Zoom {{ zoomLevel + 1 }}</v-btn>
+            <v-btn @click="zoomIn" :disabled="zoomLevel === zoomLevels.length - 1">
+              <v-icon>mdi-magnify-plus</v-icon>
             </v-btn>
           </v-btn-toggle>
         </v-col>
@@ -93,7 +106,7 @@ import 'fabric-pure-browser';
 import { createDeleteControl } from '../utils/fabricControls';
 import { setupBoundaryConstraints } from '../utils/fabricBoundary';
 import { groupSectionsByRow  } from '../utils/fabric';
-import { sectionTypes as NEW_SECTIONS, COLUMN_WIDTH, ROW_HEIGHT, GRID_COLUMNS, GRID_ROWS } from '../constants/sectionTypes';
+import { sectionTypes as NEW_SECTIONS, COLUMN_WIDTH, ROW_HEIGHT, GRID_COLUMNS, GRID_ROWS, ZOOM_LEVEL_OPTIONS, ZOOM_LEVEL_DEFAULT } from '../constants/sectionTypes';
 
 export default {
   data() {
@@ -102,10 +115,12 @@ export default {
       selectedNewSection: 0,
       sections: [],
       canvas: null,
+      canvasWidth: 600,
+      canvasHeight: 400,
       gridColumns: GRID_COLUMNS,
       gridRows: GRID_ROWS,
-      columnWidth: COLUMN_WIDTH,
-      rowHeight: ROW_HEIGHT,
+      zoomLevels: ZOOM_LEVEL_OPTIONS,
+      zoomLevel: ZOOM_LEVEL_DEFAULT,
       hoveredSection: null,
       visibleSelection: true,
       history: [],
@@ -122,6 +137,12 @@ export default {
     canRedo() {
       return this.historyIndex < this.history.length - 1;
     },
+    columnWidth() {
+      return this.zoomLevels[this.zoomLevel].columnWidth;
+    },
+    rowHeight() {
+      return this.zoomLevels[this.zoomLevel].rowHeight;
+    },
   },
   mounted() {
     this.$nextTick(() => {
@@ -130,17 +151,17 @@ export default {
       createDeleteControl(this.handleDelete);
       setupBoundaryConstraints(
         this.canvas, 
-        this.gridColumns, 
-        this.columnWidth, 
-        this.rowHeight
+        () => this.gridColumns, 
+        () => this.columnWidth, 
+        () => this.rowHeight
       );
     });
   },
   methods: {
     initFabricCanvas() {
       this.canvas = new fabric.Canvas(this.$refs.fabricCanvas, {
-        width: this.gridColumns * this.columnWidth,
-        height: this.gridRows * this.rowHeight,
+        width: this.canvasWidth,
+        height: this.canvasHeight,
         backgroundColor: '#f0f0f0',
         selection: false,
       });
@@ -506,6 +527,31 @@ export default {
         this.sections = JSON.parse(this.history[this.historyIndex]);
         this.redrawSections();
       }
+    },
+    //#endregion
+    //#region [Zoom In/Zoom Out functionality]
+    zoomIn() {
+      if (this.zoomLevel < this.zoomLevels.length - 1) {
+        this.zoomLevel++;
+        this.updateZoom();
+      }
+    },
+    zoomOut() {
+      if (this.zoomLevel > 0) {
+        this.zoomLevel--;
+        this.updateZoom();
+      }
+    },
+    updateZoom() {
+      this.gridColumns = Math.floor(this.canvasWidth / this.columnWidth);
+      this.gridRows = Math.floor(this.canvasHeight / this.rowHeight);
+      this.drawGrid();
+      this.sections.forEach(section => {
+        section.left = Math.round(section.left / this.columnWidth) * this.columnWidth;
+        section.top = Math.round(section.top / this.rowHeight) * this.rowHeight;
+      });
+      this.redrawSections();
+      this.addToHistory();
     },
     //#endregion
     //#region [JSON DATA]

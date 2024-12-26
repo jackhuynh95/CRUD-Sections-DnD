@@ -20,13 +20,13 @@ export function setupBoundaryConstraints(canvas, gridColumns, columnWidth, rowHe
     }
 
     // Snap to grid
-    obj.left = Math.round(obj.left / columnWidth) * columnWidth;
-    obj.top = Math.round(obj.top / rowHeight) * rowHeight;
+    obj.left = Math.round(obj.left / columnWidth()) * columnWidth();
+    obj.top = Math.round(obj.top / rowHeight()) * rowHeight();
   });
 
   canvas.on('object:scaling', (e) => {
     const obj = e.target;
-    const maxWidth = gridColumns * columnWidth;
+    const maxWidth = gridColumns() * columnWidth();
     
     // Prevent scaling beyond canvas width
     if (obj.width * obj.scaleX > maxWidth) {
@@ -34,8 +34,8 @@ export function setupBoundaryConstraints(canvas, gridColumns, columnWidth, rowHe
     }
     
     // Maintain minimum width of one column
-    if (obj.width * obj.scaleX < columnWidth) {
-      obj.scaleX = columnWidth / obj.width;
+    if (obj.width * obj.scaleX < columnWidth()) {
+      obj.scaleX = columnWidth() / obj.width;
     }
     
     // Lock height scaling

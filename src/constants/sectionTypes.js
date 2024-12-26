@@ -15,3 +15,12 @@ export const GRID_COLUMNS = 3;
 export const GRID_ROWS = 4;
 export const COLUMN_WIDTH = 200;
 export const ROW_HEIGHT = 100;
+
+
+export const ZOOM_LEVEL_OPTIONS = [
+  { columnWidth: 50, rowHeight: 25 },
+  { columnWidth: 100, rowHeight: 50 },
+  { columnWidth: 200, rowHeight: 100 },
+  { columnWidth: 400, rowHeight: 200 },
+];
+export const ZOOM_LEVEL_DEFAULT = 2;
