@@ -12,5 +12,6 @@ export const sectionTypes = [
 ];
 
 export const GRID_COLUMNS = 3;
+export const GRID_ROWS = 4;
 export const COLUMN_WIDTH = 200;
 export const ROW_HEIGHT = 100;

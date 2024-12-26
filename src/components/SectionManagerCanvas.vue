@@ -7,6 +7,32 @@
       <v-btn @click="exportJSON">Export Sections</v-btn>
     </v-card-title>
     <v-card-text>
+      <!-- Increase/Decrease rows and columns -->
+      <v-row>
+        <v-col cols="6">
+          <v-btn-toggle mandatory>
+            <v-btn @click="changeGridSize('column', -1)">
+              <v-icon>mdi-minus</v-icon>
+            </v-btn>
+            <v-btn disabled>{{ gridColumns }} Columns</v-btn>
+            <v-btn @click="changeGridSize('column', 1)">
+              <v-icon>mdi-plus</v-icon>
+            </v-btn>
+          </v-btn-toggle>
+        </v-col>
+        <v-col cols="6">
+          <v-btn-toggle mandatory>
+            <v-btn @click="changeGridSize('row', -1)">
+              <v-icon>mdi-minus</v-icon>
+            </v-btn>
+            <v-btn disabled>{{ gridRows }} Rows</v-btn>
+            <v-btn @click="changeGridSize('row', 1)">
+              <v-icon>mdi-plus</v-icon>
+            </v-btn>
+          </v-btn-toggle>
+        </v-col>
+      </v-row>
+
       <!-- <v-select
         v-model="selectedNewSection"
         :items="newSections"
@@ -25,7 +51,9 @@
       
       <v-row>
         <v-col cols="12" md="8">
-          <canvas ref="fabricCanvas" :width="600" height="400"></canvas>
+          <div ref="canvasContainer" style="height: 400px; overflow-y: auto;">
+            <canvas ref="fabricCanvas"></canvas>
+          </div>
         </v-col>
         <v-col cols="12" md="4" v-if="visibleSelection">
           <v-list dense >
@@ -52,6 +80,10 @@
         </v-col>
       </v-row>
     </v-card-text>
+    <v-card-actions>
+      <v-btn @click="undo" :disabled="!canUndo">Undo</v-btn>
+      <v-btn @click="redo" :disabled="!canRedo">Redo</v-btn>
+    </v-card-actions>
   </v-card>
 </template>
 
@@ -61,7 +93,7 @@ import 'fabric-pure-browser';
 import { createDeleteControl } from '../utils/fabricControls';
 import { setupBoundaryConstraints } from '../utils/fabricBoundary';
 import { groupSectionsByRow  } from '../utils/fabric';
-import { sectionTypes as NEW_SECTIONS, COLUMN_WIDTH, ROW_HEIGHT, GRID_COLUMNS } from '../constants/sectionTypes';
+import { sectionTypes as NEW_SECTIONS, COLUMN_WIDTH, ROW_HEIGHT, GRID_COLUMNS, GRID_ROWS } from '../constants/sectionTypes';
 
 export default {
   data() {
@@ -71,15 +103,24 @@ export default {
       sections: [],
       canvas: null,
       gridColumns: GRID_COLUMNS,
+      gridRows: GRID_ROWS,
       columnWidth: COLUMN_WIDTH,
       rowHeight: ROW_HEIGHT,
       hoveredSection: null,
       visibleSelection: true,
+      history: [],
+      historyIndex: -1,
     };
   },
   computed: {
     groupedSections() {
       return groupSectionsByRow(this.sections);
+    },
+    canUndo() {
+      return this.historyIndex > 0;
+    },
+    canRedo() {
+      return this.historyIndex < this.history.length - 1;
     },
   },
   mounted() {
@@ -99,7 +140,7 @@ export default {
     initFabricCanvas() {
       this.canvas = new fabric.Canvas(this.$refs.fabricCanvas, {
         width: this.gridColumns * this.columnWidth,
-        height: 400,
+        height: this.gridRows * this.rowHeight,
         backgroundColor: '#f0f0f0',
         selection: false,
       });
@@ -121,8 +162,16 @@ export default {
           this.canvas.renderAll();
         }
       });
+
+      this.canvas.on('object:modified', this.addToHistory);
+
+      // this.$refs.canvasContainer.addEventListener('scroll', this.handleScroll);
     },
     drawGrid() {
+      this.canvas.clear();
+      this.canvas.setWidth(this.gridColumns * this.columnWidth);
+      this.canvas.setHeight(this.gridRows * this.rowHeight);
+
       for (let i = 1; i < this.gridColumns; i++) {
         this.canvas.add(new fabric.Line([i * this.columnWidth, 0, i * this.columnWidth, this.canvas.height], {
           stroke: '#ccc',
@@ -130,6 +179,34 @@ export default {
           evented: false,
         }));
       }
+
+      for (let i = 1; i < this.gridRows; i++) {
+        this.canvas.add(new fabric.Line([0, i * this.rowHeight, this.canvas.width, i * this.rowHeight], {
+          stroke: '#ccc',
+          selectable: false,
+          evented: false,
+        }));
+      }
+
+      this.redrawSections();
+    },
+    redrawSections() {
+      this.sections.forEach(section => {
+        const existingObject = this.canvas.getObjects().find(obj => obj.sectionId === section.id);
+        if (existingObject) {
+          this.canvas.remove(existingObject);
+        }
+        this.addSectionToCanvas(section);
+      });
+    },
+    changeGridSize(type, change) {
+      if (type === 'column') {
+        this.gridColumns = Math.max(1, this.gridColumns + change);
+      } else {
+        this.gridRows = Math.max(1, this.gridRows + change);
+      }
+      this.drawGrid();
+      this.addToHistory();
     },
     addNewSection() {
       const newSection = this.newSections.find(section => section.id === this.selectedNewSection);
@@ -147,6 +224,7 @@ export default {
         if (!this.checkOverlap(section)) {
           this.sections.push(section);
           this.addSectionToCanvas(section);
+          this.addToHistory();
         } else {
           console.warn('Cannot place section: overlaps with existing section');
         }
@@ -169,12 +247,18 @@ export default {
 
       switch (section.type) {
         case 'text':
+          // Improved 'text' section rendering
           fabricObject = new fabric.Textbox(section.name, {
             left: section.left,
             top: section.top,
             width: width,
             height: height,
             fontSize: 16,
+            fill: '#333',
+            backgroundColor: '#f8f8f8',
+            borderColor: '#ddd',
+            borderWidth: 1,
+            padding: 5,
           });
           break;
         case 'image':
@@ -331,6 +415,7 @@ export default {
       const index = this.sections.findIndex(section => section.id === sectionId);
       if (index !== -1) {
         this.sections.splice(index, 1);
+        this.addToHistory();
       }
     },
     deleteSection(index) {
@@ -339,6 +424,7 @@ export default {
       const objectsToRemove = this.canvas.getObjects().filter(obj => obj.sectionId === sectionId);
       objectsToRemove.forEach(obj => this.canvas.remove(obj));
       this.canvas.renderAll();
+      this.addToHistory();
     },
     focusSection(sectionId) {
       this.hoveredSection = sectionId;
@@ -389,11 +475,47 @@ export default {
         section.width = newWidth;
       }
     },
+    //#region [Scroll Loader]
+    // handleScroll() {
+    //   const scrollTop = this.$refs.canvasContainer.scrollTop;
+    //   const scrollHeight = this.$refs.canvasContainer.scrollHeight;
+    //   const clientHeight = this.$refs.canvasContainer.clientHeight;
+
+    //   if (scrollHeight - scrollTop === clientHeight) {
+    //     this.gridRows += 2;
+    //     this.drawGrid();
+    //   }
+    // },
+    //#endregion
+    //#region [Undo/Redo functionality]
+    addToHistory() {
+      this.history = this.history.slice(0, this.historyIndex + 1);
+      this.history.push(JSON.stringify(this.sections));
+      this.historyIndex = this.history.length - 1;
+    },
+    undo() {
+      if (this.canUndo) {
+        this.historyIndex--;
+        this.sections = JSON.parse(this.history[this.historyIndex]);
+        this.redrawSections();
+      }
+    },
+    redo() {
+      if (this.canRedo) {
+        this.historyIndex++;
+        this.sections = JSON.parse(this.history[this.historyIndex]);
+        this.redrawSections();
+      }
+    },
+    //#endregion
+    //#region [JSON DATA]
     exportJSON() {
       const sections = JSON.stringify(this.sections);
       console.log("🚀 ~ exportJSON ~ sections:", sections)
       return sections;
     },
+    //#endregion
+    //#region [Check Overlay]
     checkOverlap(newSection) {
       return this.sections.some(existingSection => {
         if (existingSection.id === newSection.id) return false; // Don't check against itself
@@ -415,6 +537,7 @@ export default {
         height: fabricObject.height,
       };
     },
+    //#endregion
   },
 };
 </script>
