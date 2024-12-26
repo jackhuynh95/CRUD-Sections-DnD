@@ -1,6 +1,7 @@
 <script setup>
 import SectionManager from './components/SectionManager.vue'
 import SectionManagerCanvas from './components/SectionManagerCanvas.vue'
+import SectionManagerCanvasTree from './components/SectionManagerCanvasTree.vue'
 </script>
 
 <template>
@@ -12,6 +13,9 @@ import SectionManagerCanvas from './components/SectionManagerCanvas.vue'
     
     <h1>Canvas Drawing</h1>
     <SectionManagerCanvas msg="Vite + Vue" />
+
+    <h1>Canvas Drawing Tree</h1>
+    <SectionManagerCanvasTree msg="Vite + Vue" />
   </div>
 </template>
 
